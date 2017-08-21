@@ -68,9 +68,10 @@ def predict(sess,cnn,test,alphabet,batch_size,q_len,a_len):
                     cnn.a_neg_position:data[5]
                     }
 
-        score,q,a = sess.run([cnn.score12,cnn.attention_q,cnn.attention_a], feed_dict)
-        if batch_size == 20:
-            attention.extend((q,a))
+        score = sess.run(cnn.score12, feed_dict)
+        # print len(score)
+        # if batch_size == 20:
+        #     attention.extend((q,a))
         scores.extend(score)
     pickle.dump(attention,open('attention.file','w'))
     return np.array(scores[:len(test)])
@@ -172,8 +173,8 @@ def test_pair_wise(dns = FLAGS.dns):
                             cnn.a_pos_position:data[8],
                             cnn.a_neg_position:data[9]
                         }
-                        _, summary,step,loss, accuracy,score12,score13,see  = sess.run(
-                        [cnn.train_op, cnn.merged,cnn.global_step,cnn.loss, cnn.accuracy,cnn.score12,cnn.score13,cnn.see],
+                        _, summary,step,loss, accuracy,score12,score13 = sess.run(
+                        [cnn.train_op, cnn.merged,cnn.global_step,cnn.loss, cnn.accuracy,cnn.score12,cnn.score13],
                         feed_dict)
                         train_writer.add_summary(summary, i)
                         time_str = datetime.datetime.now().isoformat()

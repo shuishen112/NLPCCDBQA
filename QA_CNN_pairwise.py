@@ -5,7 +5,7 @@ import numpy as np
 # model_type :apn or qacnn
 class QA_CNN_extend(object):
     def __init__(self,max_input_left,max_input_right,batch_size,vocab_size,embedding_size,filter_sizes,num_filters,
-        dropout_keep_prob=1,learning_rate = 0.001,embeddings = None,l2_reg_lambda = 0.0,overlap_needed = False,trainable = True,extend_feature_dim = 10,pooling = 'attentive',position_needed = True,conv = 'narrow'):
+        dropout_keep_prob = 1,learning_rate = 0.001,embeddings = None,l2_reg_lambda = 0.0,overlap_needed = False,trainable = True,extend_feature_dim = 10,pooling = 'attentive',position_needed = True,conv = 'narrow'):
 
         self.dropout_keep_prob = dropout_keep_prob
         self.num_filters = num_filters
@@ -291,7 +291,7 @@ if __name__ == '__main__':
         trainable = True,
         extend_feature_dim = 10,
         position_needed = False,
-        pooling = 'attentive',
+        pooling = 'max',
         conv = 'wide')
     cnn.build_graph()
     input_x_1 = np.reshape(np.arange(3 * 33),[3,33])
@@ -321,8 +321,8 @@ if __name__ == '__main__':
             # cnn.a_pos_position:a_pos_position,
             # cnn.a_neg_position:a_neg_position
         }
-        question,answer,score,see = sess.run([cnn.question,cnn.answer,cnn.score12,cnn.see],feed_dict)
+        question,answer,score = sess.run([cnn.question,cnn.answer,cnn.score12],feed_dict)
         print question.shape,answer.shape
         print score
-        print see
+
 
