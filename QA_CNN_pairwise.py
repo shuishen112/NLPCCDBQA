@@ -180,7 +180,7 @@ class QA_CNN_extend(object):
         print tf.reshape(Q,[-1,len(self.filter_sizes) * self.num_filters])
         print self.U
         second_step = tf.reshape(first,[-1,self.max_input_left,len(self.filter_sizes) * self.num_filters])
-        result = tf.matmul(second_step,tf.transpose(A,perm = [0,2,1]))
+        result = tf.matmul(second_step,tf.nn.softmax(tf.transpose(A,perm = [0,2,1]),1))
         # print 'result',result
         G = tf.tanh(result)
         # G = result
@@ -189,7 +189,9 @@ class QA_CNN_extend(object):
         col_pooling = tf.reduce_max(G,2,True,name = 'col_pooling')
 
         self.attention_q = tf.nn.softmax(col_pooling,1,name = 'attention_q')
+        print self.attention_q
         self.see = self.attention_q
+
         self.attention_a = tf.nn.softmax(row_pooling,name = 'attention_a')
         R_q = tf.reshape(tf.matmul(Q,self.attention_q,transpose_a = 1),[-1,self.num_filters * len(self.filter_sizes)],name = 'R_q')
         R_a = tf.reshape(tf.matmul(self.attention_a,A),[-1,self.num_filters * len(self.filter_sizes)],name = 'R_a')
@@ -319,7 +321,8 @@ if __name__ == '__main__':
             # cnn.a_pos_position:a_pos_position,
             # cnn.a_neg_position:a_neg_position
         }
-        question,answer,score = sess.run([cnn.question,cnn.answer,cnn.score12],feed_dict)
+        question,answer,score,see = sess.run([cnn.question,cnn.answer,cnn.score12,cnn.see],feed_dict)
         print question.shape,answer.shape
         print score
+        print see
 

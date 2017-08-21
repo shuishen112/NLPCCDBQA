@@ -176,7 +176,6 @@ def test_pair_wise(dns = FLAGS.dns):
                         [cnn.train_op, cnn.merged,cnn.global_step,cnn.loss, cnn.accuracy,cnn.score12,cnn.score13,cnn.see],
                         feed_dict)
                         train_writer.add_summary(summary, i)
-                        print see
                         time_str = datetime.datetime.now().isoformat()
                         print("{}: step {}, loss {:g}, acc {:g} ,positive {:g},negative {:g}".format(time_str, step, loss, accuracy,np.mean(score12),np.mean(score13)))
                         line = "{}: step {}, loss {:g}, acc {:g} ,positive {:g},negative {:g}".format(time_str, step, loss, accuracy,np.mean(score12),np.mean(score13))

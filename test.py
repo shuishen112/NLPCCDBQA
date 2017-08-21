@@ -9,6 +9,7 @@ import numpy as np
 # d = tf.ones([10,2])
 a = [23.12,34.23,12.56]
 b = tf.nn.l2_normalize(a,0)
+c = tf.reduce_sum(b**2)
 # initializer = (np.array(0), np.array(1))
 # fibonaccis = tf.scan(lambda a, _: (a[1], a[0] + a[1]), elems)
 with tf.Session() as sess:
@@ -16,28 +17,28 @@ with tf.Session() as sess:
 	sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
 	# print sess.run(a)
 	print sess.run(b)
-	# print sess.run(c)
+	print sess.run(c)
 	# print sess.run(d)
 
-# import numpy as np
-# import matplotlib.pyplot as plt
-# # alpha = ['ABC', 'DEF', 'GHI', 'JKL']
-# d = pickle.load(open('attention.file'))
-# print d[1][0]
-# exit()
-# # print len(d)
-# data = d[0]
-# print data
-# # print d[0][0]
-# fig = plt.figure()
-# ax = fig.add_subplot(111)
-# cax = ax.matshow(data, cmap = plt.cm.Blues)
-# fig.colorbar(cax)
+import numpy as np
+import matplotlib.pyplot as plt
+# alpha = ['ABC', 'DEF', 'GHI', 'JKL']
+d = pickle.load(open('attention.file'))
+print d[0][0]
+exit()
+# print len(d)
+data = d[0][0]
+print data
+# print d[0][0]
+fig = plt.figure()
+ax = fig.add_subplot(111)
+cax = ax.matshow(data, cmap = plt.cm.Blues)
+fig.colorbar(cax)
 
-# # ax.set_xticklabels(['']+alpha)
-# # ax.set_yticklabels(['']+alpha)
+# ax.set_xticklabels(['']+alpha)
+# ax.set_yticklabels(['']+alpha)
 
-# plt.show()
+plt.show()
 
 # a = []
 
