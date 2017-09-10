@@ -9,6 +9,8 @@ import datetime
 from helper import get_overlap_dict,batch_gen_with_pair_overlap,load,prepare,batch_gen_with_single,dns_sample,batch_gen_with_pair_dns
 import operator
 from QA_CNN_pairwise import QA_CNN_extend
+from QA_CNN_quantum_pairwise import QA_CNN_quantum_extend
+from QA_RNN_pairwise import QA_RNN_extend
 import random
 import evaluation
 import cPickle as pickle
@@ -108,7 +110,7 @@ def test_pair_wise(dns = FLAGS.dns):
             # train,test,dev = load("trec",filter=True)
             # alphabet,embeddings = prepare([train,test,dev],is_embedding_needed = True)
             print "start build model"
-            cnn = QA_CNN_extend(
+            cnn = QA_RNN_extend(
                 max_input_left = q_max_sent_length,
                 max_input_right = a_max_sent_length,
                 batch_size = FLAGS.batch_size,
@@ -182,12 +184,16 @@ def test_pair_wise(dns = FLAGS.dns):
                         line = "{}: step {}, loss {:g}, acc {:g} ,positive {:g},negative {:g}".format(time_str, step, loss, accuracy,np.mean(score12),np.mean(score13))
                         # print loss
                 if i % 1 == 0:
-                    predicted = predict(sess,cnn,dev,alphabet,FLAGS.batch_size,q_max_sent_length,a_max_sent_length)
-                    map_mrr_test = evaluation.evaluationBypandas(dev,predicted)
+                    predicted_dev = predict(sess,cnn,dev,alphabet,FLAGS.batch_size,q_max_sent_length,a_max_sent_length)
+                    map_mrr_dev = evaluation.evaluationBypandas(dev,predicted_dev)
+                    predicted_test = predict(sess,cnn,test,alphabet,FLAGS.batch_size,q_max_sent_length,a_max_sent_length)
+                    map_mrr_test = evaluation.evaluationBypandas(test,predicted_test)
+
+                    print "{}:epoch:dev map mrr {}".format(i,map_mrr_dev)
                     print "{}:epoch:test map mrr {}".format(i,map_mrr_test)
-                    line = " {}:epoch: map_test{}".format(i,map_mrr_test[0])
-                    if map_mrr_test[0] > map_max:
-                        map_max = map_mrr_test[0]
+                    line = " {}:epoch: map_dev{}-------map_mrr_test{}".format(i,map_mrr_dev[0],map_mrr_test)
+                    if map_mrr_dev[0] > map_max:
+                        map_max = map_mrr_dev[0]
                         # timeStamp = time.strftime("%Y%m%d%H%M%S", time.localtime(int(time.time())))
                         
                         save_path = saver.save(sess, out_dir)

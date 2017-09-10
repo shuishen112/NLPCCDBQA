@@ -287,7 +287,7 @@ def load(dataset = dataset, filter = False):
             datas.append(removeUnanswerdQuestion(data))
         else:
             datas.append(data)
-    sub_file = os.path.join(data_dir,'submit.txt')
+    # sub_file = os.path.join(data_dir,'submit.txt')
     # submit = pd.read_csv(sub_file,header = None,sep = "\t",names = ['question','answer'],quoting = 3)
     # datas.append(submit)
     return tuple(datas)

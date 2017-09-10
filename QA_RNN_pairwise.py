@@ -1,12 +1,24 @@
 import tensorflow as tf
 import numpy as np
-
+from tensorflow.contrib import rnn
 
 # model_type :apn or qacnn
-class QA_CNN_extend(object):
+class QA_RNN_extend(object):
     def __init__(self,max_input_left,max_input_right,batch_size,vocab_size,embedding_size,filter_sizes,num_filters,
         dropout_keep_prob = 1,learning_rate = 0.001,embeddings = None,l2_reg_lambda = 0.0,overlap_needed = False,trainable = True,extend_feature_dim = 10,pooling = 'attentive',position_needed = True,conv = 'narrow'):
+        """
+            QA_RNN model for question answering
 
+            Args:
+                self.dropout_keep_prob: dropout rate
+                self.num_filters : number of filters
+                self.para : parameter list
+                self.extend_feature_dim : my extend feature dimension
+                self.max_input_left : the length of question
+                self.max_input_right : the length of answer
+                self.pooling : pooling strategy :max pooling or attentive pooling
+                
+        """
         self.dropout_keep_prob = dropout_keep_prob
         self.num_filters = num_filters
         self.embeddings = embeddings
@@ -33,6 +45,8 @@ class QA_CNN_extend(object):
         if self.position_needed:
             self.total_embedding_dim = self.total_embedding_dim + extend_feature_dim
         self.learning_rate = learning_rate
+
+        self.hidden_size = 100
     def create_placeholder(self):
         print('Create placeholders')
         self.question = tf.placeholder(tf.int32,[None,self.max_input_left],name = 'input_question')
@@ -72,47 +86,52 @@ class QA_CNN_extend(object):
         self.q_neg_embedding = self.concat_embedding(self.question,self.q_neg_overlap,self.q_position,self.q_conv_position)
         self.a_pos_embedding = self.concat_embedding(self.answer, self.a_pos_overlap,self.a_pos_position,self.a_conv_position)
         self.a_neg_embedding = self.concat_embedding(self.answer_negative,self.a_neg_overlap,self.a_neg_position,self.a_conv_position)
-    def convolution(self):
-        print 'convolution:wide_convolution'
-        self.kernels = []
-        for i,filter_size in enumerate(self.filter_sizes):
-            with tf.name_scope('conv-max-pool-%s' % filter_size):
-                filter_shape = [filter_size,self.total_embedding_dim,1,self.num_filters]
-                W = tf.Variable(tf.truncated_normal(filter_shape, stddev = 0.1), name="W")
-                b = tf.Variable(tf.constant(0.0, shape=[self.num_filters]), name="b")
-                self.kernels.append((W,b))
-                self.para.append(W)
-                self.para.append(b)
-        #convolution
-        embeddings = [self.q_pos_embedding,self.q_neg_embedding,self.a_pos_embedding,self.a_neg_embedding]
-        self.q_pos_feature_map,self.q_neg_feature_map,self.a_pos_feature_map,self.a_neg_feature_map = \
-        [self.wide_convolution(embedding) for embedding in embeddings]
-    def pooling_graph(self):
-        print 'pooling: max pooling or attentive pooling'
-        #pooling strategy
-        if self.pooling == 'max':
-            print self.pooling
-            self.q_pos_pooling = tf.reshape(self.max_pooling(self.q_pos_feature_map,self.max_input_left),[-1,self.num_filters_total])
-            self.q_neg_pooling = tf.reshape(self.max_pooling(self.q_neg_feature_map,self.max_input_left),[-1,self.num_filters_total])
-            self.a_pos_pooling = tf.reshape(self.max_pooling(self.a_pos_feature_map,self.max_input_right),[-1,self.num_filters_total])
-            self.a_neg_pooling = tf.reshape(self.max_pooling(self.a_neg_feature_map,self.max_input_right),[-1,self.num_filters_total])
+    def rnn_model_sentence(self):
 
-        elif self.pooling == 'attentive':
-            print self.pooling
-            with tf.name_scope('attention'):    
-                    self.U = tf.Variable(tf.truncated_normal(shape = [self.num_filters_total,self.num_filters_total],stddev = 0.01,name = 'U'))
-                    self.para.append(self.U)
-            self.q_pos_pooling,self.a_pos_pooling = self.attentive_pooling(self.q_pos_feature_map,self.a_pos_feature_map)
-            self.q_neg_pooling,self.a_neg_pooling = self.attentive_pooling(self.q_neg_feature_map,self.a_neg_feature_map)
-            # print self.q_pos_pooling
-        else:
-            print 'no implement'
-            exit(0)  
+        fw_cell,bw_cell = self.lstm_cell('rnn')
+        self.q_pos_rnn = self.lstm_model(fw_cell,bw_cell,self.q_pos_embedding)
+        self.q_neg_rnn = self.lstm_model(fw_cell,bw_cell,self.q_neg_embedding)
+        self.a_pos_rnn = self.lstm_model(fw_cell,bw_cell,self.a_pos_embedding)
+        self.a_neg_rnn = self.lstm_model(fw_cell,bw_cell,self.a_neg_embedding)
+        self.q_pos_rnn,self.a_pos_rnn = self.rnn_attention(self.q_pos_rnn,self.a_pos_rnn)
+        self.q_neg_rnn,self.a_neg_rnn = self.rnn_attention(self.q_neg_rnn,self.a_neg_rnn)
+        # print self.q_pos_rnn
+        # self.a_pos_rnn = self.lstm_model(self.a_pos_embedding)
+        # self.a_neg_rnn = self.lstm_model(self.a_neg_embedding)
+    def rnn_attention(self,q,a):
+        attention = 'simple'
+
+        if attention == 'simple':
+            a = tf.reduce_mean(a,axis = 1,keep_dims = True)
+            alpha = tf.matmul(q,tf.transpose(a,perm = [0,2,1]))
+            self.see = alpha
+            q_attention = tf.reduce_mean(tf.multiply(q,alpha),axis = 1)
+            return q_attention,tf.squeeze(a,axis = 1)
+        return tf.reduce_mean(q,axis = 1),tf.reduce_mean(a,axis = 1)
+
+    def lstm_model(self,fw_cell,bw_cell,embedding_sentence):
+        outputs,_ = tf.nn.bidirectional_dynamic_rnn(fw_cell,bw_cell,embedding_sentence,dtype = tf.float32)
+        print("outputs:===>",outputs) #outputs:(<tf.Tensor 'bidirectional_rnn/fw/fw/transpose:0' shape=(?, 5, 100) dtype=float32>, <tf.Tensor 'ReverseV2:0' shape=(?, 5, 100) dtype=float32>))
+        #3. concat output
+        output_rnn = tf.concat(outputs,axis = 2) #[batch_size,sequence_length,hidden_size*2]
+        # self.output_rnn_last = tf.reduce_mean(output_rnn,axis = 1) #[batch_size,hidden_size*2] #output_rnn_last=output_rnn[:,-1,:] ##[batch_size,hidden_size*2] #TODO
+        return output_rnn
+
+    def lstm_cell(self,name):
+        with tf.variable_scope('forward' + name):
+            lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(self.hidden_size,1.0)
+        with tf.variable_scope('backward' + name):
+            lstm_bw_cell = tf.contrib.rnn.BasicLSTMCell(self.hidden_size)
+
+        if self.dropout_keep_prob is not None:
+            self.lstm_fw_cell = rnn.DropoutWrapper(lstm_fw_cell,output_keep_prob = self.dropout_keep_prob)
+            self.lstm_bw_cell = rnn.DropoutWrapper(lstm_bw_cell,output_keep_prob = self.dropout_keep_prob)
+        return self.lstm_fw_cell,self.lstm_bw_cell
     def create_loss(self):
         
         with tf.name_scope('score'):
-            self.score12 = self.getCosine(self.q_pos_pooling,self.a_pos_pooling)
-            self.score13 = self.getCosine(self.q_neg_pooling,self.a_neg_pooling)
+            self.score12 = self.getCosine(self.q_pos_rnn,self.a_pos_rnn)
+            self.score13 = self.getCosine(self.q_neg_rnn,self.a_neg_rnn)
         l2_loss = tf.constant(0.0)
         for p in self.para:
             l2_loss += tf.nn.l2_loss(p)
@@ -150,7 +169,7 @@ class QA_CNN_extend(object):
                 all_embedding = tf.concat([embedded_chars_q,overlap_embedding_q,position_embedding],2)
                 # return tf.expand_dims(tf.concat([embedded_chars_q,overlap_embedding_q,position_embedding],2),-1)
         # all_embedding = tf.multiply(all_embedding,conv_position)
-        return tf.expand_dims(all_embedding,-1)
+        return all_embedding
 
     def max_pooling(self,conv,input_length):
         pooled = tf.nn.max_pool(
@@ -183,16 +202,13 @@ class QA_CNN_extend(object):
         result = tf.matmul(second_step,tf.transpose(A,perm = [0,2,1]))
         # print 'result',result
         G = tf.tanh(result)
-        
         # G = result
         # column-wise pooling ,row-wise pooling
         row_pooling = tf.reduce_max(G,1,True,name = 'row_pooling')
         col_pooling = tf.reduce_max(G,2,True,name = 'col_pooling')
-    
+
         self.attention_q = tf.nn.softmax(col_pooling,1,name = 'attention_q')
         print self.attention_q
-        self.see = self.attention_q
-
         self.attention_a = tf.nn.softmax(row_pooling,name = 'attention_a')
         R_q = tf.reshape(tf.matmul(Q,self.attention_q,transpose_a = 1),[-1,self.num_filters * len(self.filter_sizes)],name = 'R_q')
         R_a = tf.reshape(tf.matmul(self.attention_a,A),[-1,self.num_filters * len(self.filter_sizes)],name = 'R_a')
@@ -267,18 +283,14 @@ class QA_CNN_extend(object):
         self.create_placeholder()
         self.create_position()
         self.add_embeddings()
-        if self.conv == 'narrow':
-            self.narrow_convolution_pooling()
-        else:
-            self.convolution()
-            self.pooling_graph()
+        self.rnn_model_sentence()
         self.create_loss()
         self.create_op()
         self.merged = tf.summary.merge_all()
 
     
 if __name__ == '__main__':
-    cnn = QA_CNN_extend(max_input_left = 33,
+    cnn = QA_RNN_extend(max_input_left = 33,
         max_input_right = 40,
         batch_size = 3,
         vocab_size = 5000,
@@ -292,7 +304,7 @@ if __name__ == '__main__':
         trainable = True,
         extend_feature_dim = 10,
         position_needed = False,
-        pooling = 'attentive',
+        pooling = 'max',
         conv = 'wide')
     cnn.build_graph()
     input_x_1 = np.reshape(np.arange(3 * 33),[3,33])

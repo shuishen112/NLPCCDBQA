@@ -76,7 +76,7 @@ flags.DEFINE_integer('extend_feature_dim',10,'overlap_feature_dim')
 # Training parameters
 flags.DEFINE_integer("batch_size", 64, "Batch Size (default: 64)")
 flags.DEFINE_boolean("trainable", False, "is embedding trainable? (default: False)")
-flags.DEFINE_integer("num_epochs", 10, "Number of training epochs (default: 200)")
+flags.DEFINE_integer("num_epochs", 100, "Number of training epochs (default: 200)")
 flags.DEFINE_integer("evaluate_every", 500, "Evaluate model on dev set after this many steps (default: 100)")
 flags.DEFINE_integer("checkpoint_every", 500, "Save model after this many steps (default: 100)")
 flags.DEFINE_boolean('overlap_needed',False,"is overlap used")

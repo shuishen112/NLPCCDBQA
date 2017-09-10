@@ -3,7 +3,7 @@ import numpy as np
 
 
 # model_type :apn or qacnn
-class QA_CNN_extend(object):
+class QA_CNN_quantum_extend(object):
     def __init__(self,max_input_left,max_input_right,batch_size,vocab_size,embedding_size,filter_sizes,num_filters,
         dropout_keep_prob = 1,learning_rate = 0.001,embeddings = None,l2_reg_lambda = 0.0,overlap_needed = False,trainable = True,extend_feature_dim = 10,pooling = 'attentive',position_needed = True,conv = 'narrow'):
 
@@ -87,6 +87,29 @@ class QA_CNN_extend(object):
         embeddings = [self.q_pos_embedding,self.q_neg_embedding,self.a_pos_embedding,self.a_neg_embedding]
         self.q_pos_feature_map,self.q_neg_feature_map,self.a_pos_feature_map,self.a_neg_feature_map = \
         [self.wide_convolution(embedding) for embedding in embeddings]
+
+    def out_product(self):
+        self.density_pos_q = self.density_matrix(self.q_pos_feature_map)
+        self.density_neg_q = self.density_matrix(self.q_neg_feature_map)
+        self.density_pos_a = self.density_matrix(self.a_pos_feature_map)
+        self.density_neg_a = self.density_matrix(self.a_neg_feature_map)
+
+    def density_matrix_similarity(self,density_q,density_a):
+        M_qa = tf.matmul(density_q,density_a)
+        return tf.trace(M_qa)
+
+    def density_matrix(self,sentence):
+        # sentence = tf.expand_dims(sentence,-1)
+        # sentence = tf.nn.l2_normalize(sentence,1)
+        # reverse = tf.transpose(sentence,[0,2,1])
+        sentence = tf.nn.l2_normalize(sentence,3)
+        reverse = tf.transpose(sentence,[0,1,3,2])
+        mul = tf.matmul(reverse,sentence)
+        # pi_mul = tf.multiply(mul,tf.nn.softmax(weighted_sentence,1))
+        # self.see = self.weighted_q
+        # self.see = tf.reduce_sum(reverse,2)
+        return tf.reduce_sum(mul,1)
+
     def pooling_graph(self):
         print 'pooling: max pooling or attentive pooling'
         #pooling strategy
@@ -111,8 +134,12 @@ class QA_CNN_extend(object):
     def create_loss(self):
         
         with tf.name_scope('score'):
-            self.score12 = self.getCosine(self.q_pos_pooling,self.a_pos_pooling)
-            self.score13 = self.getCosine(self.q_neg_pooling,self.a_neg_pooling)
+            # self.score12 = self.getCosine(self.q_pos_pooling,self.a_pos_pooling)
+            # self.score13 = self.getCosine(self.q_neg_pooling,self.a_neg_pooling)
+            self.score12 = self.density_matrix_similarity(self.density_pos_q,self.density_pos_a)
+            self.score12 = tf.subtract(self.score12,tf.reduce_mean(self.score12))
+            self.score13 = self.density_matrix_similarity(self.density_neg_q,self.density_neg_a)
+            self.score13 = tf.subtract(self.score12,tf.reduce_mean(self.score12))
         l2_loss = tf.constant(0.0)
         for p in self.para:
             l2_loss += tf.nn.l2_loss(p)
@@ -183,12 +210,11 @@ class QA_CNN_extend(object):
         result = tf.matmul(second_step,tf.transpose(A,perm = [0,2,1]))
         # print 'result',result
         G = tf.tanh(result)
-        
         # G = result
         # column-wise pooling ,row-wise pooling
         row_pooling = tf.reduce_max(G,1,True,name = 'row_pooling')
         col_pooling = tf.reduce_max(G,2,True,name = 'col_pooling')
-    
+
         self.attention_q = tf.nn.softmax(col_pooling,1,name = 'attention_q')
         print self.attention_q
         self.see = self.attention_q
@@ -271,14 +297,15 @@ class QA_CNN_extend(object):
             self.narrow_convolution_pooling()
         else:
             self.convolution()
-            self.pooling_graph()
+            self.out_product()
+            # self.pooling_graph()
         self.create_loss()
         self.create_op()
         self.merged = tf.summary.merge_all()
 
     
 if __name__ == '__main__':
-    cnn = QA_CNN_extend(max_input_left = 33,
+    cnn = QA_CNN_quantum_extend(max_input_left = 33,
         max_input_right = 40,
         batch_size = 3,
         vocab_size = 5000,
@@ -292,7 +319,7 @@ if __name__ == '__main__':
         trainable = True,
         extend_feature_dim = 10,
         position_needed = False,
-        pooling = 'attentive',
+        pooling = 'max',
         conv = 'wide')
     cnn.build_graph()
     input_x_1 = np.reshape(np.arange(3 * 33),[3,33])
