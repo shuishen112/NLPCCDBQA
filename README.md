@@ -6,13 +6,9 @@ We utilize chinese wiki corpus to train our embedding. You can train embedding b
 
 ## Requirements
 
--python2.7
+- python3
 
--Tensorflow = 1.2
-
--gensim
-
--numpy
+- Tensorflow = 1.12
 
 ## Training
 

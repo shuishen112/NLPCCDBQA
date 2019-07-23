@@ -24,7 +24,14 @@ def map_metric(group):
 		ap+=1.0* (i+1) /(index+1)
 	#print( ap/len(correct_candidates))
 	return ap/len(correct_candidates)
-
+def mrr_metric_filter(group):
+	group = sklearn.utils.shuffle(group,random_state =132)
+	candidates = group.sort_values(by='score',ascending=False).reset_index()
+	rr=candidates[candidates["flag"]==1].index.min()+1
+	if rr!=rr:
+		return False
+	mrr = 1.0 / rr
+	return mrr < 0.5
 def evaluation_plus(modelfile, groundtruth=qa_path):
 	answers=pd.read_csv(groundtruth,header=None,sep="\t",names=["question","answer","flag"],quoting =3)
 	answers["score"]=pd.read_csv(modelfile,header=None,sep="\t",names=["score"],quoting =3)
